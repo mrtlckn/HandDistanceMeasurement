@@ -3,6 +3,8 @@ from cvzone.HandTrackingModule import HandDetector
 import math
 import numpy as np
 import cvzone
+import random
+import time
 #Webcam
 cap = cv2.VideoCapture(0)
 cap.set(3, 1280) #width
@@ -23,51 +25,72 @@ coff = np.polyfit(x, y, 2)  # y = Ax^2 + Bx + C
 # 3- Game Variables
 cx, cy = 250,250
 color = (255,0,255)
+counter = 0
+score = 0
+timeStart = time.time()
+totalTime = 20
 
 #Loop
 while True:
     success, img = cap.read()
     #hands, img = detector.findHands(img)
     hands = detector.findHands(img, draw=False) #hand points will not draw
-    # 2- Measurement
-    if hands:
-        #hands[0] #first element means first hand, we have just one hand
-        lmList = hands[0]['lmList'] #lmList give us the list of all the points
-        x, y, w, h = hands[0]['bbox']
-        #print(lmList)
-        # What exactly we need which point number? check it media pipe website
-        # 5 and 17 points!
-        x1,y1 = lmList[5]
-        x2, y2 = lmList[17]
+    if time.time() - timeStart < totalTime:
 
-        #2.1 - diagonal distance
-        distance = int(math.sqrt((y2-y1)**2 + (x2-x1)**2))
-        #2.2 - calibration (distance to cm)
-        A, B, C = coff
-        distanceCM = A * distance**2 + B * distance + C
-        #final print!
-        #print(abs(distanceCM), distance)
+        # 2- Measurement
+        if hands:
+            #hands[0] #first element means first hand, we have just one hand
+            lmList = hands[0]['lmList'] #lmList give us the list of all the points
+            x, y, w, h = hands[0]['bbox']
+            #print(lmList)
+            # What exactly we need which point number? check it media pipe website
+            # 5 and 17 points!
+            x1,y1 = lmList[5]
+            x2, y2 = lmList[17]
 
-        # 3.3- Logic
-        if distanceCM < 40:
-            if x < cx < x+w and y < cy < y+h:
-                color = (0,255,0)
-        else:
-                color = (255,0,255)
+            #2.1 - diagonal distance
+            distance = int(math.sqrt((y2-y1)**2 + (x2-x1)**2))
+            #2.2 - calibration (distance to cm)
+            A, B, C = coff
+            distanceCM = A * distance**2 + B * distance + C
+            #final print!
+            #print(abs(distanceCM), distance)
 
-        cv2.rectangle(img, (x,y), (x+w , y+h), (255,0,255),3)
-        cvzone.putTextRect(img, f'{int(distanceCM)} cm', (x+5, y-10))
+            # 3.3- Logic
+            if distanceCM < 40:
+                if x < cx < x+w and y < cy < y+h:
+                  counter = 1
 
-    #3.1- Draw Button
-    cv2.circle(img, (cx, cy), 30, color, cv2.FILLED)
-    cv2.circle(img, (cx, cy), 10, (255,255,255), cv2.FILLED)
-    cv2.circle(img, (cx, cy), 20, (255, 255, 255), 2)
-    cv2.circle(img, (cx, cy), 30, (50, 50, 50), 2)
+            cv2.rectangle(img, (x,y), (x+w , y+h), (255,0,255),3)
+            cvzone.putTextRect(img, f'{int(distanceCM)} cm', (x+5, y-10))
 
-    #3.2- Game HUD
-    cvzone.putTextRect(img,'Time : 30', (1000, 75), scale=3, offset=20)
-    cvzone.putTextRect(img, 'Score : 4', (60, 75), scale=3, offset=20)
+        if counter:
+            counter += 1
+            color = (0, 255, 0)
+            if counter == 3:
+                cx = random.randint(100,1100)
+                cy = random.randint(100, 600)
+                color = (255, 0, 255)
+                score +=1
+                counter = 0
 
+        #3.1- Draw Button
+        cv2.circle(img, (cx, cy), 30, color, cv2.FILLED)
+        cv2.circle(img, (cx, cy), 10, (255,255,255), cv2.FILLED)
+        cv2.circle(img, (cx, cy), 20, (255, 255, 255), 2)
+        cv2.circle(img, (cx, cy), 30, (50, 50, 50), 2)
 
+        #3.2- Game HUD
+        cvzone.putTextRect(img,f'Time : {int(totalTime-(time.time()-timeStart))}', (1000, 75), scale=3, offset=20)
+        cvzone.putTextRect(img, f'Score : {str(score).zfill(2)}', (60, 75), scale=3, offset=20)
+
+    else:
+        cvzone.putTextRect(img, 'Game Over', (400, 400), scale=5, offset=30, thickness=7)
+        cvzone.putTextRect(img, f'Your Score: {score}', (450, 500), scale=3, offset=20)
+        cvzone.putTextRect(img, f'Press R to restart', (460, 575), scale=2, offset=10)
     cv2.imshow('Image', img)
-    cv2.waitKey(1)
+    key = cv2.waitKey(1)
+
+    if key == ord('r'):
+        timeStart = time.time()
+        score = 0
